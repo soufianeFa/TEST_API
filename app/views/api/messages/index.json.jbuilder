@@ -1,1 +1,3 @@
-json.array! @messages, partial: 'messages/message', as: :message
+json.array!(@messages) do |message|
+  json.extract! message, :id, :user, :conversation, :content
+end

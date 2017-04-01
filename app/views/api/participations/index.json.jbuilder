@@ -1,1 +1,3 @@
-json.array! @participations, partial: 'participations/participation', as: :participation
+json.array!(@participations) do |participation|
+  json.extract! participation, :id
+end

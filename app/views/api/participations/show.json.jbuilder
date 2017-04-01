@@ -1,1 +1,1 @@
-json.partial! "participations/participation", participation: @participation
+json.extract! @participation, :id
