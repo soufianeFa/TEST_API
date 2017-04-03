@@ -5,4 +5,7 @@ class Api::UsersController < ApiController
   def show
     respond_with User.find(params[:id])
   end
+  def set_user
+    @user = User.find(params[:id])
+  end
 end
