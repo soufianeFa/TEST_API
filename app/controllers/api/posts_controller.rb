@@ -1,7 +1,5 @@
-class Api::PostsController < ApplicationController
+class Api::PostsController < ApiController
   # we will require authentication after we know the controller works:
-  before_action :authenticate_user!
-
   before_action :set_post, only: [:show, :edit, :update, :destroy]
 
   def index

@@ -1,4 +1,4 @@
-class Api::MessagesController < ApplicationController
+class Api::MessagesController < ApiController
   before_action :set_message, only: [:show, :edit, :update, :destroy]
 
   # GET /messages
@@ -24,40 +24,49 @@ class Api::MessagesController < ApplicationController
   # POST /messages
   # POST /messages.json
   def create
-    @message = Message.new(message_params)
-
-    respond_to do |format|
-      if @message.save
-        format.html { redirect_to @message, notice: 'Message was successfully created.' }
-        format.json { render :show, status: :created, location: @message }
+    message = Message.new(message_params)
+    participation = Participation.find_by(conversation_id: message.conversation_id)
+    user = participation.users.where(id: current_user.id)
+    if !user.empty?
+      if message.save!
+        message.update(user_id: current_user.id)
+        render json: message, status: 201
       else
-        format.html { render :new }
-        format.json { render json: @message.errors, status: :unprocessable_entity }
+        render json: { errors: message.errors}, status: 422
       end
+    else
+      render json: { errors: message.errors}, status: 422
     end
   end
 
   # PATCH/PUT /messages/1
   # PATCH/PUT /messages/1.json
   def update
-    respond_to do |format|
-      if @message.update(message_params)
-        format.html { redirect_to @message, notice: 'Message was successfully updated.' }
-        format.json { render :show, status: :ok, location: @message }
+    message = Message.find(params[:id])
+    participation = Participation.find_by(conversation_id: message.conversation_id)
+    user = participation.users.where(id: current_user.id)
+    if !user.empty?
+      if message.user == current_user and message.update!(message_params)
+        render json: message, status: 200
       else
-        format.html { render :edit }
-        format.json { render json: @message.errors, status: :unprocessable_entity }
+        render json: {message: "Vous n'avez pas le droit de modifier ce message."}, status: 422
       end
     end
   end
 
-  # DELETE /messages/1
-  # DELETE /messages/1.json
   def destroy
-    @message.destroy
-    respond_to do |format|
-      format.html { redirect_to messages_url, notice: 'Message was successfully destroyed.' }
-      format.json { head :no_content }
+    message = Message.find(params[:id])
+    participation = Participation.find_by(conversation_id: message.conversation_id)
+    user = participation.users.where(id: current_user.id)
+    if !user.empty?
+      if message.user == current_user
+        message.destroy
+        head 204
+      else
+        render json: {message: "Vous n'avez pas le droit de supprimer ce message."}, status: 422
+      end
+    else
+      render json: {message: "Vous n'avez pas le droit de supprimer ce message."}, status: 422
     end
   end
 
@@ -68,7 +77,9 @@ class Api::MessagesController < ApplicationController
     end
 
     # Never trust parameters from the scary internet, only allow the white list through.
-    def message_params
-      params.fetch(:message, {})
+  def message_params
+    params
+        .require(:message)
+        .permit(:conversation_id, :content)
     end
-end
+  end

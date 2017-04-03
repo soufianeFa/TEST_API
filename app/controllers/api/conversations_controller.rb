@@ -1,4 +1,4 @@
-class Api::ConversationsController < ApplicationController
+class Api::ConversationsController < ApiController
   before_action :set_conversation, only: [:show, :edit, :update, :destroy]
 
   # GET /conversations
@@ -23,43 +23,41 @@ class Api::ConversationsController < ApplicationController
 
   # POST /conversations
   # POST /conversations.json
-  def create
-    @conversation = Conversation.new(conversation_params)
 
-    respond_to do |format|
-      if @conversation.save
-        format.html { redirect_to @conversation, notice: 'Conversation was successfully created.' }
-        format.json { render :show, status: :created, location: @conversation }
-      else
-        format.html { render :new }
-        format.json { render json: @conversation.errors, status: :unprocessable_entity }
-      end
+  def create
+    conversation = Conversation.new(conversation_params)
+    if conversation.save!
+      conversation.update(user_id: current_user.id)
+      render json: conversation, status: 201
+    else
+      render json: { errors: conversation.errors}, status: 422
     end
   end
 
   # PATCH/PUT /conversations/1
   # PATCH/PUT /conversations/1.json
   def update
-    respond_to do |format|
-      if @conversation.update(conversation_params)
-        format.html { redirect_to @conversation, notice: 'Conversation was successfully updated.' }
-        format.json { render :show, status: :ok, location: @conversation }
-      else
-        format.html { render :edit }
-        format.json { render json: @conversation.errors, status: :unprocessable_entity }
-      end
+    conversation = Conversation.find(params[:id])
+    if conversation.user == current_user and conversation.update!(conversation_params)
+      render json: conversation, status: 200
+    else
+      render json: { errors: conversation.errors}, status: 422
     end
   end
 
-  # DELETE /conversations/1
-  # DELETE /conversations/1.json
   def destroy
-    @conversation.destroy
-    respond_to do |format|
-      format.html { redirect_to conversations_url, notice: 'Conversation was successfully destroyed.' }
-      format.json { head :no_content }
+    conversation = Conversation.find(params[:id])
+    if conversation.user == current_user
+      Message.where(conversation_id: conversation.id).destroy_all
+      Participation.where(conversation_id: conversation.id).destroy_all
+      conversation.destroy
+      head 204
+    else
+      render json: {message: "Vous n'avez pas le droit de supprimer la conversation."}, status: 422
     end
   end
+
+  private
 
   private
     # Use callbacks to share common setup or constraints between actions.
@@ -67,8 +65,10 @@ class Api::ConversationsController < ApplicationController
       @conversation = Conversation.find(params[:id])
     end
 
-    # Never trust parameters from the scary internet, only allow the white list through.
-    def conversation_params
-      params.fetch(:conversation, {})
-    end
+  def conversation_params
+    params
+        .require(:conversation)
+        .permit(:subject)
+  end
+
 end

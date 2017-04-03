@@ -1,4 +1,4 @@
-class Api::ParticipationsController < ApplicationController
+class Api::ParticipationsController < ApiController
   before_action :set_participation, only: [:show, :edit, :update, :destroy]
 
   # GET /participations
@@ -24,40 +24,44 @@ class Api::ParticipationsController < ApplicationController
   # POST /participations
   # POST /participations.json
   def create
-    @participation = Participation.new(participation_params)
-
-    respond_to do |format|
-      if @participation.save
-        format.html { redirect_to @participation, notice: 'Participation was successfully created.' }
-        format.json { render :show, status: :created, location: @participation }
+    participation = Participation.new(participation_params)
+    conversation = Conversation.find(participation.conversation_id)
+    if conversation.user == current_user
+      if  participation.save!
+        render json: participation, status: 201
       else
-        format.html { render :new }
-        format.json { render json: @participation.errors, status: :unprocessable_entity }
+        render json: { errors: participation.errors}, status: 422
       end
+    else
+      render json: {message: "Vous n'avez pas le droit de créer une participation dans cette conversation."}, status: 422
     end
   end
 
   # PATCH/PUT /participations/1
   # PATCH/PUT /participations/1.json
   def update
-    respond_to do |format|
-      if @participation.update(participation_params)
-        format.html { redirect_to @participation, notice: 'Participation was successfully updated.' }
-        format.json { render :show, status: :ok, location: @participation }
+    participation = Participation.find(params[:id])
+    conversation = Conversation.find(participation.conversation_id)
+    user = participation.users.where(id: current_user.id)
+    if !user.empty? or conversation.user == current_user
+      if participation.update!(participation_params)
+        render json: participation, status: 200
       else
-        format.html { render :edit }
-        format.json { render json: @participation.errors, status: :unprocessable_entity }
+        render json: { errors: participation.errors}, status: 422
       end
+    else
+      render json: {message: "Vous n'avez pas le droit de modifier la participation de cette conversation."}, status: 422
     end
   end
 
-  # DELETE /participations/1
-  # DELETE /participations/1.json
   def destroy
-    @participation.destroy
-    respond_to do |format|
-      format.html { redirect_to participations_url, notice: 'Participation was successfully destroyed.' }
-      format.json { head :no_content }
+    participation = Participation.find(params[:id])
+    conversation = Conversation.find(participation.conversation_id)
+    if conversation.user == current_user
+      participation.destroy
+      head 204
+    else
+      render json: {message: "Vous n'avez pas le droit de supprimer la participation."}, status: 422
     end
   end
 
@@ -67,8 +71,10 @@ class Api::ParticipationsController < ApplicationController
       @participation = Participation.find(params[:id])
     end
 
-    # Never trust parameters from the scary internet, only allow the white list through.
-    def participation_params
-      params.fetch(:participation, {})
-    end
+  def participation_params
+    params
+        .require(:participation)
+        .permit(:conversation_id, :user_ids =>[])
+  end
+
 end
